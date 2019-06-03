@@ -217,3 +217,137 @@ func AssertStorageBucketExistsE(t *testing.T, name string) error {
 
 	return nil
 }
+
+// ReadBucketObject reads an object from the given Storage Bucket and returns its contents.
+func CheckBucketAttribs(t *testing.T, bucketName string, attributeName string, attributeValue string) string {
+	result, err := CheckBucketAttribsE(t, bucketName, attributeName,attributeValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result !="success" {
+		t.Fatal(result)
+	}
+	return result
+}
+
+
+// ReadBucketObjectE reads an object from the given Storage Bucket and returns its contents.
+func CheckBucketAttribsE(t *testing.T, bucketName string, attributeName string, attributeValue string) (string, error) {
+	logger.Logf(t, "Reading object attrib %s for bucket %s with value %s", attributeName,bucketName,attributeValue)
+
+	ctx := context.Background()
+
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return "error", err
+	}
+
+	attrs, err := client.Bucket(bucketName).Attrs(ctx)
+	if (attrs.Name == bucketName) {
+		switch strings.ToLower(attributeName) {
+		case "location":
+			logger.Logf(t,"LOCATION ")
+			if (strings.HasPrefix(strings.ToLower(attrs.Location),strings.ToLower(attributeValue))) {
+				return "success",nil
+			}else{
+				if err != nil {
+					return "error", err
+				}
+				return join("Bucket Location and Region must start with ",attributeValue),nil
+			}		
+		case "storageclass":
+			logger.Logf(t,"StorageClass")
+			if (strings.Compare(strings.ToUpper(attrs.StorageClass),strings.ToUpper(attributeValue))==0) {
+				return "success",nil
+			}else{
+				if err != nil {
+					return "error", err
+				}
+				return join("Storage Class is ", strings.ToUpper(attrs.StorageClass), " does not match to what is expected - ",attributeValue),nil
+			}		
+		case "version":
+			logger.Logf(t,"version")
+			logger.Logf(t,"versioning enabled? %t", attrs.VersioningEnabled) 
+			if (strings.ToLower(attributeValue) == "true") {
+				if  attrs.VersioningEnabled  {
+					return "success",nil
+				}else{
+					return join("Bucket Versioning should be enabled but is not enabled "),nil
+				}	
+			}else {
+				if  attrs.VersioningEnabled  {
+					return join("Bucket Versioning should not be enabled but is enabled "),nil
+				} else{
+					return "success",nil
+				}
+			}
+		case "labels":
+			logger.Logf(t,"Labels %s", attrs.Labels)
+		}
+	}
+	return "success", nil
+}
+
+
+// ReadBucketObject reads an object from the given Storage Bucket and returns its contents.
+func CheckBucketLabels(t *testing.T, bucketName string, labelName string, labelValue string) string {
+	result, err := CheckBucketLabelsE(t, bucketName, "labels",labelName,labelValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result !="success" {
+		t.Fatal(result)
+	}
+	return result
+}	
+
+// ReadBucketObjectE reads an object from the given Storage Bucket and returns its contents.
+func CheckBucketLabelsE(t *testing.T, bucketName string, attributeName string, labelName string, labelValue string) (string, error) {
+	logger.Logf(t, "Reading object attrib %s for bucket %s with value %s", labelName,bucketName,labelValue)
+
+	ctx := context.Background()
+
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return "error", err
+	}
+
+	attrs, err := client.Bucket(bucketName).Attrs(ctx)
+	if err != nil {
+		return "error", err
+	}
+	if (attrs.Name == bucketName) {
+		logger.Logf(t,"Labels %s", attrs.Labels)
+		var mapLabels map[string]string = attrs.Labels
+
+		logger.Logf(t,"Labels variable %s", mapLabels)
+		if mapLabels == nil {
+			return "error", err
+		}
+		if mapLabels != nil {
+			logger.Logf(t,"Labels %s %s", labelName, mapLabels[labelName])
+			if (strings.Compare(mapLabels[labelName],labelValue)==0){ 
+			//if (mapLabels[labelName]== mapLabels[labelValue]){
+				logger.Logf(t,"Matching Labels found %s = %s", labelName, mapLabels[labelName])
+				return "success", nil
+			}else{
+				if err != nil {
+					return "error", err
+				}
+				return join("Expected value for label ",labelName," is ", labelValue, "but the value is ", mapLabels[labelName] ),nil
+			}
+		}
+			
+		
+
+	}
+
+	return "success", nil
+}
+func join(strs ...string) string {
+	var sb strings.Builder
+	for _, str := range strs {
+		sb.WriteString(str)
+	}
+	return sb.String()
+}
